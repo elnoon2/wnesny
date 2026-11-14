@@ -38,3 +38,4 @@ class Conversation(db.Model):
 
     def __repr__(self) -> str:
         return f"<Conversation id={self.id} request_id={self.ride_request_id} active={self.is_active}>"
+

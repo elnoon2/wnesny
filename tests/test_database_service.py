@@ -211,3 +211,4 @@ def test_review_rules_and_participants_only(db_session):
     # Duplicate review attempt
     with pytest.raises(DatabaseServiceError, match="You have already reviewed this user"):
         create_review(ride_id=ride.id, reviewer_id=passenger.id, reviewed_user_id=driver.id, rating=4)
+

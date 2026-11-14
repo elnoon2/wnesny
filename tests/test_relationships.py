@@ -245,3 +245,4 @@ def test_notifications_relationships(db_session):
     assert user.notifications[0] == notif
     assert notif.ride == ride
     assert len(ride.notifications) == 1
+

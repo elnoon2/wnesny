@@ -264,3 +264,55 @@ def test_empty_message_rejected(db_session):
 
     with pytest.raises(ValueError):
         Message(conversation_id=1, sender_id=user.id, content="   ")
+
+
+
+def test_deleting_driver_with_rides_is_blocked_and_history_preserved(db_session):
+    """Deleting a user who drove a ride must fail; the ride must survive."""
+    driver = User(full_name="Hist Driver", email="hist.driver@example.com", password="Password123")
+    db_session.add(driver)
+    db_session.commit()
+    ride = Ride(
+        driver_id=driver.id,
+        origin_address="A",
+        destination_address="B",
+        departure_at=datetime.now(timezone.utc) + timedelta(days=1),
+    )
+    db_session.add(ride)
+    db_session.commit()
+    ride_id = ride.id
+
+    # Load the collection so an ORM-level cascade would apply if configured.
+    assert len(driver.rides_as_driver) == 1
+    db_session.delete(driver)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+    assert db_session.get(Ride, ride_id) is not None
+
+
+def test_deleting_passenger_with_requests_is_blocked(db_session):
+    """Deleting a user who requested a ride must fail; the request must survive."""
+    driver = User(full_name="D Keep", email="dkeep@example.com", password="Password123")
+    passenger = User(full_name="P Keep", email="pkeep@example.com", password="Password123")
+    db_session.add_all([driver, passenger])
+    db_session.commit()
+    ride = Ride(
+        driver_id=driver.id,
+        origin_address="A",
+        destination_address="B",
+        departure_at=datetime.now(timezone.utc) + timedelta(days=1),
+    )
+    db_session.add(ride)
+    db_session.commit()
+    req = RideRequest(ride_id=ride.id, passenger_id=passenger.id)
+    db_session.add(req)
+    db_session.commit()
+    req_id = req.id
+
+    assert len(passenger.ride_requests) == 1
+    db_session.delete(passenger)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+    assert db_session.get(RideRequest, req_id) is not None

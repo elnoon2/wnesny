@@ -87,3 +87,4 @@ class RideRequest(db.Model):
 
     def __repr__(self) -> str:
         return f"<RideRequest id={self.id} ride_id={self.ride_id} passenger_id={self.passenger_id} status='{self.status}'>"
+

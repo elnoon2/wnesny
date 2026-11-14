@@ -1,48 +1,66 @@
+"""Configuration classes for the Wnesny (ونسني) application.
+
+Values are read from environment variables (optionally loaded from a local
+``.env`` file). Secrets must never be hard-coded for production use.
+"""
+
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
-# Base directory of the application
+# Project root directory (the folder containing this file).
 BASE_DIR = Path(__file__).resolve().parent
+INSTANCE_DIR = BASE_DIR / "instance"
 
-# Load environment variables from .env file if present
+# Load environment variables from .env if present (never committed to Git).
 load_dotenv(BASE_DIR / ".env")
+
+_DEV_ONLY_SECRET = "wnesny-dev-only-insecure-secret-key"
+
+
+def _normalize_database_url(url: str | None) -> str | None:
+    """Accept the legacy ``postgres://`` scheme used by some hosts."""
+    if url and url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql://", 1)
+    return url
 
 
 class Config:
-    """Base configuration with common settings."""
-    SECRET_KEY = os.getenv("SECRET_KEY", "wnesny-dev-secret-key-change-in-production")
+    """Base configuration shared by every environment."""
+
+    SECRET_KEY = os.getenv("SECRET_KEY", _DEV_ONLY_SECRET)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = False
 
 
 class DevelopmentConfig(Config):
-    """Development configuration using SQLite."""
+    """Local development using a SQLite file in ``instance/``."""
+
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        "DATABASE_URL",
-        f"sqlite:///{BASE_DIR / 'instance' / 'wnesny_dev.db'}"
-    )
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(
+        os.getenv("DATABASE_URL")
+    ) or f"sqlite:///{INSTANCE_DIR / 'wnesny_dev.db'}"
 
 
 class TestingConfig(Config):
-    """Testing configuration using an isolated in-memory or temp SQLite database."""
+    """Automated tests: isolated in-memory SQLite database by default."""
+
     TESTING = True
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        "TEST_DATABASE_URL",
-        "sqlite:///:memory:"
-    )
-    WTF_CSRF_ENABLED = False
+    SQLALCHEMY_DATABASE_URI = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
 
 
 class ProductionConfig(Config):
-    """Production configuration using PostgreSQL or production database."""
+    """Production: ``SECRET_KEY`` and ``DATABASE_URL`` must be provided.
+
+    The values are validated by :func:`app.create_app` so that importing this
+    module never fails in other environments.
+    """
+
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
-    if not SQLALCHEMY_DATABASE_URI:
-        # Fallback to local sqlite if not set, but production should supply DATABASE_URL
-        SQLALCHEMY_DATABASE_URI = f"sqlite:///{BASE_DIR / 'instance' / 'wnesny_prod.db'}"
+    SECRET_KEY = os.getenv("SECRET_KEY")
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(os.getenv("DATABASE_URL"))
 
 
 config_by_name = {

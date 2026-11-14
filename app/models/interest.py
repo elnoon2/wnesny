@@ -39,3 +39,4 @@ class Interest(db.Model):
 
     def __repr__(self) -> str:
         return f"<Interest id={self.id} name='{self.name}' category='{self.category}'>"
+

@@ -226,3 +226,4 @@ def test_notification_creation(db_session):
     assert notif.is_read is False
     assert notif.type == "request_accepted"
     assert "<Notification" in repr(notif)
+

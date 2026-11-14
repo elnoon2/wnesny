@@ -130,3 +130,4 @@ class Ride(db.Model):
 
     def __repr__(self) -> str:
         return f"<Ride id={self.id} driver_id={self.driver_id} status='{self.status}' departure='{self.departure_at}'>"
+

@@ -55,3 +55,4 @@ class Message(db.Model):
 
     def __repr__(self) -> str:
         return f"<Message id={self.id} conv_id={self.conversation_id} sender_id={self.sender_id} read={self.is_read}>"
+

@@ -1,4 +1,13 @@
-"""Idempotent seed script to populate the predefined interests catalog."""
+"""Idempotent seed script to populate the predefined interests catalog.
+
+Usage (after ``flask --app run.py db upgrade``)::
+
+    python seed_interests.py
+"""
+
+import sys
+
+from sqlalchemy import inspect
 
 from app import create_app
 from app.extensions import db
@@ -77,11 +86,24 @@ def seed_interests(app=None) -> int:
     return inserted_count
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """Seed the configured database. The schema must already be migrated."""
     app = create_app()
     with app.app_context():
-        # Ensure tables exist in case run before migrations
-        db.create_all()
-        count = seed_interests(app)
-        total = Interest.query.count()
-        print(f"Seed completed. {count} new interests inserted. Total interests in database: {total}")
+        # Never create tables here: the schema is owned by Flask-Migrate.
+        if not inspect(db.engine).has_table(Interest.__tablename__):
+            print(
+                "The 'interests' table does not exist. "
+                "Run 'flask --app run.py db upgrade' first."
+            )
+            return 1
+    count = seed_interests(app)
+    with app.app_context():
+        total = db.session.query(Interest).count()
+    print(f"Seed completed. {count} new interests inserted. Total interests in database: {total}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+

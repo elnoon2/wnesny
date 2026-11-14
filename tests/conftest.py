@@ -1,11 +1,10 @@
-import sys
-from pathlib import Path
-import pytest
+"""Shared pytest fixtures for the Wnesny test suite.
 
-# Ensure root workspace and legacy src are in sys.path
-BASE_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(BASE_DIR))
-sys.path.insert(0, str(BASE_DIR / "src"))
+Tests always run against an isolated SQLite database (in-memory by default),
+never against the development database in ``instance/``.
+"""
+
+import pytest
 
 from app import create_app
 from app.extensions import db as _db
@@ -14,14 +13,13 @@ from config import TestingConfig
 
 @pytest.fixture(scope="session")
 def app():
-    """Session-wide test Flask application."""
-    test_app = create_app(TestingConfig)
-    return test_app
+    """Session-wide Flask application configured for testing."""
+    return create_app(TestingConfig)
 
 
 @pytest.fixture(scope="function")
 def db_session(app):
-    """Function-level clean database fixture with transaction isolation."""
+    """Provide a fresh schema for each test and drop it afterwards."""
     with app.app_context():
         _db.create_all()
         yield _db.session

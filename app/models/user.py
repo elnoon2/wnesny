@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 
@@ -35,15 +35,16 @@ class User(db.Model):
         "Ride",
         back_populates="driver",
         foreign_keys="Ride.driver_id",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
+        # History is preserved: deleting a driver is blocked by the RESTRICT FK.
+        cascade="save-update, merge",
+        passive_deletes="all",
     )
     ride_requests = db.relationship(
         "RideRequest",
         back_populates="passenger",
         foreign_keys="RideRequest.passenger_id",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
+        cascade="save-update, merge",
+        passive_deletes="all",
     )
     sent_messages = db.relationship(
         "Message",
@@ -99,3 +100,4 @@ class User(db.Model):
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email='{self.email}'>"
+

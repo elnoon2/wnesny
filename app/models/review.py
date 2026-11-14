@@ -78,3 +78,4 @@ class Review(db.Model):
 
     def __repr__(self) -> str:
         return f"<Review id={self.id} ride_id={self.ride_id} reviewer={self.reviewer_id}->{self.reviewed_user_id} rating={self.rating}>"
+

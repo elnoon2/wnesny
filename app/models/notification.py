@@ -46,3 +46,4 @@ class Notification(db.Model):
 
     def __repr__(self) -> str:
         return f"<Notification id={self.id} user_id={self.user_id} type='{self.type}' read={self.is_read}>"
+

@@ -1,31 +1,55 @@
+"""Wnesny (ونسني) Flask application package."""
+
 import os
+
 from flask import Flask
-from config import config_by_name
+
 from app.extensions import db, migrate
-import app.models  # Ensure all models are registered with SQLAlchemy
+from config import INSTANCE_DIR, config_by_name
+
+import app.models  # noqa: F401  (registers all models with SQLAlchemy metadata)
 
 
-def create_app(config_name=None):
-    """Application factory for Wnesny."""
+def create_app(config_name=None) -> Flask:
+    """Application factory for Wnesny.
+
+    Args:
+        config_name: An environment name (``development``, ``testing``,
+            ``production``) or a configuration class. Defaults to the
+            ``WNESNY_ENV`` environment variable, then ``development``.
+    """
     if config_name is None:
-        config_name = os.getenv("FLASK_ENV", "development")
+        config_name = os.getenv("WNESNY_ENV", "development")
 
-    app = Flask(__name__)
+    flask_app = Flask(__name__, instance_path=os.fspath(INSTANCE_DIR))
 
-    # Load configuration
     if isinstance(config_name, str):
-        app.config.from_object(config_by_name.get(config_name, config_by_name["default"]))
+        config_class = config_by_name.get(config_name, config_by_name["default"])
     else:
-        app.config.from_object(config_name)
+        config_class = config_name
+    flask_app.config.from_object(config_class)
 
-    # Ensure instance folder exists for SQLite databases
-    try:
-        os.makedirs(app.instance_path, exist_ok=True)
-    except OSError:
-        pass
+    _validate_config(flask_app)
 
-    # Initialize extensions
-    db.init_app(app)
-    migrate.init_app(app, db)
+    # Ensure the instance folder (used for local SQLite files) exists.
+    os.makedirs(flask_app.instance_path, exist_ok=True)
 
-    return app
+    db.init_app(flask_app)
+    migrate.init_app(flask_app, db)
+
+    return flask_app
+
+
+def _validate_config(flask_app: Flask) -> None:
+    """Fail fast when production is started without required settings."""
+    if flask_app.config.get("TESTING") or flask_app.config.get("DEBUG"):
+        return
+    missing = [
+        key
+        for key in ("SECRET_KEY", "SQLALCHEMY_DATABASE_URI")
+        if not flask_app.config.get(key)
+    ]
+    if missing:
+        raise RuntimeError(
+            "Missing required production configuration: " + ", ".join(missing)
+        )

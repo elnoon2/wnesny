@@ -1,3 +1,5 @@
+﻿"""Wnesny (ونسني) entry point: ``flask --app run.py <command>`` or ``python run.py``."""
+
 import os
 from app import create_app
 from app.extensions import db
@@ -14,7 +16,7 @@ from app.models import (
     Notification,
 )
 
-env = os.getenv("FLASK_ENV", "development")
+env = os.getenv("WNESNY_ENV", "development")
 app = create_app(env)
 
 
@@ -37,4 +39,5 @@ def make_shell_context():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=app.config.get("DEBUG", False))
+

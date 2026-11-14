@@ -545,3 +545,4 @@ def create_notification(
     db.session.add(notif)
     db.session.commit()
     return notif
+

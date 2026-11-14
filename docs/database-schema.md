@@ -143,7 +143,7 @@ Stores registered accounts for both drivers and passengers.
 | `is_active` | Boolean | No | `True` | Account state flag for soft deactivation. |
 | `created_at` | DateTime(tz) | No | `UTC now` | Account registration timestamp. |
 
-* **Delete Strategy**: Restrict deletion to preserve historical ride, audit, and rating data.
+* **Delete Strategy**: Restrict deletion to preserve historical ride, audit, and rating data. Foreign keys from `rides`, `ride_requests`, `messages` and `reviews` use `ON DELETE RESTRICT`, and the ORM relationships on `User` do not cascade deletes to rides or requests (verified by tests). Deactivate accounts with `is_active = False` instead.
 
 ---
 
@@ -334,8 +334,8 @@ python seed_interests.py
 # Run all tests with verbose output
 pytest -v
 
-# Run only database models and constraint suites
-pytest tests/test_models.py tests/test_relationships.py tests/test_constraints.py tests/test_database_service.py -v
+# Run only the database suites
+pytest tests/test_models.py tests/test_relationships.py tests/test_constraints.py tests/test_database_service.py tests/test_migrations.py -v
 ```
 
 ### 5.3 Inspecting the SQLite Database
@@ -352,3 +352,4 @@ sqlite3 instance/wnesny_dev.db
 SELECT * FROM interests LIMIT 5;
 .quit
 ```
+
