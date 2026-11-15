@@ -1,6 +1,11 @@
-﻿from datetime import datetime, timezone
+import re
+from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
+
+
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+MIN_PASSWORD_LENGTH = 8
 
 
 class User(db.Model):
@@ -81,15 +86,20 @@ class User(db.Model):
 
     @staticmethod
     def normalize_email(email: str) -> str:
-        """Strip and lowercase the email address."""
-        if not email:
+        """Strip and lowercase the email address and check its basic shape."""
+        if not email or not email.strip():
             raise ValueError("Email cannot be empty.")
-        return email.strip().lower()
+        normalized = email.strip().lower()
+        if not _EMAIL_PATTERN.match(normalized):
+            raise ValueError(f"'{normalized}' is not a valid e-mail address.")
+        return normalized
 
     def set_password(self, password: str) -> None:
         """Hash and set the user's password."""
-        if not password or len(password) < 6:
-            raise ValueError("Password must be at least 6 characters long.")
+        if not password or len(password) < MIN_PASSWORD_LENGTH:
+            raise ValueError(
+                f"Password must be at least {MIN_PASSWORD_LENGTH} characters long."
+            )
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password: str) -> bool:

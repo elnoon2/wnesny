@@ -12,6 +12,8 @@ from app.services.database_service import (
     reject_ride_request,
     cancel_ride_request,
     cancel_ride,
+    start_ride,
+    complete_ride,
     create_conversation_for_accepted_request,
     send_message,
     create_review,
@@ -66,7 +68,7 @@ def test_cannot_request_if_already_has_accepted_passenger(db_session):
     )
 
     req1 = submit_ride_request(ride_id=ride.id, passenger_id=p1.id)
-    accept_ride_request(req1.id)
+    accept_ride_request(req1.id, driver.id)
 
     with pytest.raises(DatabaseServiceError, match="This ride already has an accepted passenger"):
         submit_ride_request(ride_id=ride.id, passenger_id=p2.id)
@@ -89,7 +91,7 @@ def test_transactional_acceptance_and_competing_requests(db_session):
     req2 = submit_ride_request(ride_id=ride.id, passenger_id=p2.id)
 
     # Accept req1
-    accepted_req, conv = accept_ride_request(req1.id)
+    accepted_req, conv = accept_ride_request(req1.id, driver.id)
 
     assert accepted_req.status == "accepted"
     assert conv is not None
@@ -121,7 +123,7 @@ def test_ride_cancellation_preserves_history_and_deactivates_chat(db_session):
     )
 
     req = submit_ride_request(ride_id=ride.id, passenger_id=passenger.id)
-    _, conv = accept_ride_request(req.id)
+    _, conv = accept_ride_request(req.id, driver.id)
     assert conv.is_active is True
 
     # Driver cancels the ride
@@ -156,7 +158,7 @@ def test_messaging_participant_authorization(db_session):
     )
 
     req = submit_ride_request(ride_id=ride.id, passenger_id=passenger.id)
-    _, conv = accept_ride_request(req.id)
+    _, conv = accept_ride_request(req.id, driver.id)
 
     # Driver sends message
     msg1 = send_message(conversation_id=conv.id, sender_id=driver.id, content="See you soon!")
@@ -181,18 +183,18 @@ def test_review_rules_and_participants_only(db_session):
         driver_id=driver.id,
         origin_address="Giza",
         destination_address="Badya",
-        departure_at=datetime.now(timezone.utc) - timedelta(hours=2),
+        departure_at=datetime.now(timezone.utc) + timedelta(hours=2),
     )
     req = submit_ride_request(ride_id=ride.id, passenger_id=passenger.id)
-    accept_ride_request(req.id)
+    accept_ride_request(req.id, driver.id)
 
     # Attempt review while ride is still 'scheduled'
     with pytest.raises(DatabaseServiceError, match="Reviews can only be submitted after a ride is marked 'completed'"):
         create_review(ride_id=ride.id, reviewer_id=passenger.id, reviewed_user_id=driver.id, rating=5)
 
-    # Mark ride completed
-    ride.status = "completed"
-    db_session.commit()
+    # Complete the ride through the service (scheduled -> in_progress -> completed)
+    start_ride(ride.id, driver.id)
+    complete_ride(ride.id, driver.id)
 
     # Stranger attempts review
     with pytest.raises(DatabaseServiceError, match="Reviews are only permitted between the driver and accepted passenger"):

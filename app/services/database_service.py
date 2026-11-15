@@ -12,6 +12,7 @@ Encapsulates database operations and critical business rules:
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models import (
     User,
@@ -31,6 +32,43 @@ class DatabaseServiceError(Exception):
     pass
 
 
+MAX_ADDRESS_LENGTH = 200  # matches the rides.origin_address / destination_address columns
+MIN_GRADUATION_YEAR = 1950
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Treat a naive datetime as UTC so it can be compared with aware ones."""
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def _commit_or_raise(message: str) -> None:
+    """Commit, turning a database integrity failure into a service error.
+
+    This is what protects the "one accepted passenger per ride" and "one
+    request per passenger" rules when two users act at the same moment: the
+    database constraint wins, and the caller gets a clear error instead of a
+    raw ``IntegrityError`` with a half-finished session.
+    """
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        db.session.rollback()
+        raise DatabaseServiceError(message) from exc
+
+
+def _get_ride_for_driver(request_id: int, driver_id: int) -> Tuple[RideRequest, Ride]:
+    """Load a request and its ride, and check that ``driver_id`` owns the ride."""
+    req = db.session.get(RideRequest, request_id)
+    if not req:
+        raise DatabaseServiceError(f"RideRequest with id {request_id} does not exist.")
+    ride = db.session.get(Ride, req.ride_id)
+    if not ride:
+        raise DatabaseServiceError(f"Ride with id {req.ride_id} does not exist.")
+    if ride.driver_id != driver_id:
+        raise DatabaseServiceError("Only the driver of this ride can answer its requests.")
+    return req, ride
+
+
 def create_user(
     full_name: str,
     email: str,
@@ -38,19 +76,27 @@ def create_user(
     is_active: bool = True,
 ) -> User:
     """Create and persist a new user account with hashed password and normalized email."""
-    normalized_email = User.normalize_email(email)
+    if not full_name or not full_name.strip():
+        raise DatabaseServiceError("Full name cannot be empty.")
+    try:
+        normalized_email = User.normalize_email(email)
+    except ValueError as exc:
+        raise DatabaseServiceError(str(exc)) from exc
     existing = db.session.scalar(select(User).filter_by(email=normalized_email))
     if existing:
         raise DatabaseServiceError(f"A user with email '{normalized_email}' already exists.")
 
-    user = User(
-        full_name=full_name,
-        email=normalized_email,
-        password=password,
-        is_active=is_active,
-    )
+    try:
+        user = User(
+            full_name=full_name,
+            email=normalized_email,
+            password=password,
+            is_active=is_active,
+        )
+    except ValueError as exc:  # e.g. password too short
+        raise DatabaseServiceError(str(exc)) from exc
     db.session.add(user)
-    db.session.commit()
+    _commit_or_raise(f"A user with email '{normalized_email}' already exists.")
     return user
 
 
@@ -64,10 +110,20 @@ def create_user_profile(
     graduation_year: Optional[int] = None,
     education_visibility: str = "matches_only",
 ) -> UserProfile:
-    """Create or update a user's extended profile."""
+    """Create a user's extended profile (raises if one already exists)."""
     user = db.session.get(User, user_id)
     if not user:
         raise DatabaseServiceError(f"User with id {user_id} does not exist.")
+
+    max_year = datetime.now(timezone.utc).year + 10
+    if graduation_year is not None and not (MIN_GRADUATION_YEAR <= graduation_year <= max_year):
+        raise DatabaseServiceError(
+            f"graduation_year must be between {MIN_GRADUATION_YEAR} and {max_year}."
+        )
+    if education_visibility not in ("public", "matches_only", "private"):
+        raise DatabaseServiceError(
+            "education_visibility must be 'public', 'matches_only' or 'private'."
+        )
 
     existing_profile = db.session.get(UserProfile, user_id)
     if existing_profile:
@@ -126,6 +182,26 @@ def create_ride(
         raise DatabaseServiceError(f"Driver with id {driver_id} does not exist.")
     if not driver.is_active:
         raise DatabaseServiceError("Inactive users cannot publish rides.")
+
+    origin_address = (origin_address or "").strip()
+    destination_address = (destination_address or "").strip()
+    if not origin_address or not destination_address:
+        raise DatabaseServiceError("Origin and destination addresses cannot be empty.")
+    if len(origin_address) > MAX_ADDRESS_LENGTH or len(destination_address) > MAX_ADDRESS_LENGTH:
+        raise DatabaseServiceError(
+            f"Addresses must be at most {MAX_ADDRESS_LENGTH} characters long."
+        )
+    if origin_address.casefold() == destination_address.casefold():
+        raise DatabaseServiceError("Origin and destination must be different places.")
+
+    if _as_utc(departure_at) <= datetime.now(timezone.utc):
+        raise DatabaseServiceError("Departure time must be in the future.")
+
+    # Coordinates come in pairs: a latitude without a longitude is meaningless.
+    if (origin_latitude is None) != (origin_longitude is None):
+        raise DatabaseServiceError("Origin latitude and longitude must be given together.")
+    if (destination_latitude is None) != (destination_longitude is None):
+        raise DatabaseServiceError("Destination latitude and longitude must be given together.")
 
     # Validate coordinate ranges if provided
     for name, lat in [("origin_latitude", origin_latitude), ("destination_latitude", destination_latitude)]:
@@ -211,14 +287,15 @@ def submit_ride_request(
     )
     db.session.add(driver_notif)
 
-    db.session.commit()
+    _commit_or_raise("You have already submitted a request for this ride.")
     return req
 
 
-def accept_ride_request(request_id: int) -> Tuple[RideRequest, Conversation]:
-    """Transactionally accept a ride request.
+def accept_ride_request(request_id: int, driver_id: int) -> Tuple[RideRequest, Conversation]:
+    """Transactionally accept a ride request. Only the ride's driver may do this.
 
     Enforces the single-passenger rule:
+    0. Checks that ``driver_id`` is the driver of the ride.
     1. Checks ride status is scheduled.
     2. Ensures no other request for this ride is already accepted.
     3. Marks this request as accepted.
@@ -226,17 +303,14 @@ def accept_ride_request(request_id: int) -> Tuple[RideRequest, Conversation]:
     5. Creates a conversation between driver and accepted passenger.
     6. Sends notifications to the accepted and rejected passengers.
     """
-    req = db.session.get(RideRequest, request_id)
-    if not req:
-        raise DatabaseServiceError(f"RideRequest with id {request_id} does not exist.")
+    req, ride = _get_ride_for_driver(request_id, driver_id)
 
     if req.status != "pending":
         raise DatabaseServiceError(
             f"Cannot accept a request with status '{req.status}'. Only pending requests can be accepted."
         )
 
-    ride = db.session.get(Ride, req.ride_id)
-    if not ride or ride.status != "scheduled":
+    if ride.status != "scheduled":
         raise DatabaseServiceError("Cannot accept a request for a cancelled or completed ride.")
 
     # Verify single-accepted passenger rule
@@ -290,15 +364,13 @@ def accept_ride_request(request_id: int) -> Tuple[RideRequest, Conversation]:
         )
     )
 
-    db.session.commit()
+    _commit_or_raise("This ride already has an accepted passenger.")
     return req, conversation
 
 
-def reject_ride_request(request_id: int) -> RideRequest:
-    """Reject a pending ride request."""
-    req = db.session.get(RideRequest, request_id)
-    if not req:
-        raise DatabaseServiceError(f"RideRequest with id {request_id} does not exist.")
+def reject_ride_request(request_id: int, driver_id: int) -> RideRequest:
+    """Reject a pending ride request. Only the ride's driver may do this."""
+    req, _ride = _get_ride_for_driver(request_id, driver_id)
 
     if req.status != "pending":
         raise DatabaseServiceError(
@@ -324,7 +396,12 @@ def reject_ride_request(request_id: int) -> RideRequest:
 
 
 def cancel_ride_request(request_id: int, user_id: int) -> RideRequest:
-    """Allow a passenger to cancel their own pending request."""
+    """Allow a passenger to cancel their own pending or accepted request.
+
+    Cancelling an accepted request (while the ride is still scheduled) frees the
+    seat again: the ride stays scheduled and can receive new requests, the chat
+    is frozen and the driver is notified.
+    """
     req = db.session.get(RideRequest, request_id)
     if not req:
         raise DatabaseServiceError(f"RideRequest with id {request_id} does not exist.")
@@ -332,13 +409,37 @@ def cancel_ride_request(request_id: int, user_id: int) -> RideRequest:
     if req.passenger_id != user_id:
         raise DatabaseServiceError("You can only cancel your own ride request.")
 
-    if req.status != "pending":
+    if req.status not in ("pending", "accepted"):
         raise DatabaseServiceError(
-            f"Cannot cancel a request with status '{req.status}'. Only pending requests can be cancelled by passenger."
+            f"Cannot cancel a request with status '{req.status}'. "
+            "Only pending or accepted requests can be cancelled by the passenger."
         )
+
+    was_accepted = req.status == "accepted"
+    if was_accepted:
+        ride = db.session.get(Ride, req.ride_id)
+        if ride is None or ride.status != "scheduled":
+            raise DatabaseServiceError(
+                "An accepted request can only be cancelled while the ride is still scheduled."
+            )
 
     req.status = "cancelled"
     req.updated_at = datetime.now(timezone.utc)
+
+    if was_accepted:
+        if req.conversation:
+            req.conversation.is_active = False
+        passenger = db.session.get(User, user_id)
+        db.session.add(
+            Notification(
+                user_id=ride.driver_id,
+                type="request_cancelled",
+                title="Passenger Cancelled",
+                content=f"{passenger.full_name} cancelled their place on your ride. It is open for new requests.",
+                ride_id=ride.id,
+            )
+        )
+
     db.session.commit()
     return req
 
@@ -350,7 +451,7 @@ def cancel_ride(ride_id: int, driver_id: int, reason: Optional[str] = None) -> R
     - Sets ride status to 'cancelled'.
     - If there was an accepted request, deactivates the conversation.
     - Notifies the accepted passenger.
-    - Resolves any pending requests.
+    - Cancels any pending requests and notifies those passengers.
     """
     ride = db.session.get(Ride, ride_id)
     if not ride:
@@ -359,8 +460,10 @@ def cancel_ride(ride_id: int, driver_id: int, reason: Optional[str] = None) -> R
     if ride.driver_id != driver_id:
         raise DatabaseServiceError("Only the driver can cancel their ride.")
 
-    if ride.status in ("completed", "cancelled"):
-        raise DatabaseServiceError(f"Ride is already {ride.status}.")
+    if ride.status != "scheduled":
+        raise DatabaseServiceError(
+            f"Only scheduled rides can be cancelled; this ride is '{ride.status}'."
+        )
 
     ride.status = "cancelled"
 
@@ -395,7 +498,69 @@ def cancel_ride(ride_id: int, driver_id: int, reason: Optional[str] = None) -> R
     for preq in pending_requests:
         preq.status = "cancelled"
         preq.updated_at = datetime.now(timezone.utc)
+        db.session.add(
+            Notification(
+                user_id=preq.passenger_id,
+                type="ride_cancelled",
+                title="Ride Cancelled",
+                content="The driver cancelled this ride, so your request was closed.",
+                ride_id=ride_id,
+            )
+        )
 
+    db.session.commit()
+    return ride
+
+
+def _driver_ride_with_accepted_request(ride_id: int, driver_id: int) -> Tuple[Ride, RideRequest]:
+    """Load a ride owned by ``driver_id`` together with its accepted request."""
+    ride = db.session.get(Ride, ride_id)
+    if not ride:
+        raise DatabaseServiceError(f"Ride with id {ride_id} does not exist.")
+    if ride.driver_id != driver_id:
+        raise DatabaseServiceError("Only the driver can change the status of their ride.")
+    accepted_req = db.session.scalar(
+        select(RideRequest).filter_by(ride_id=ride_id, status="accepted")
+    )
+    if not accepted_req:
+        raise DatabaseServiceError("The ride has no accepted passenger.")
+    return ride, accepted_req
+
+
+def start_ride(ride_id: int, driver_id: int) -> Ride:
+    """Move a scheduled ride with an accepted passenger to 'in_progress'."""
+    ride, _accepted = _driver_ride_with_accepted_request(ride_id, driver_id)
+    if ride.status != "scheduled":
+        raise DatabaseServiceError(
+            f"Only scheduled rides can be started; this ride is '{ride.status}'."
+        )
+    ride.status = "in_progress"
+    db.session.commit()
+    return ride
+
+
+def complete_ride(ride_id: int, driver_id: int) -> Ride:
+    """Mark an in-progress ride as 'completed' and invite both people to review.
+
+    Reviews are only possible on completed rides (see :func:`create_review`), so
+    this is the step that opens them.
+    """
+    ride, accepted_req = _driver_ride_with_accepted_request(ride_id, driver_id)
+    if ride.status != "in_progress":
+        raise DatabaseServiceError(
+            f"Only rides in progress can be completed; this ride is '{ride.status}'."
+        )
+    ride.status = "completed"
+    for user_id, other in ((accepted_req.passenger_id, "driver"), (ride.driver_id, "passenger")):
+        db.session.add(
+            Notification(
+                user_id=user_id,
+                type="ride_completed",
+                title="Ride Completed",
+                content=f"Your ride is complete. You can now review your {other}.",
+                ride_id=ride_id,
+            )
+        )
     db.session.commit()
     return ride
 

@@ -51,8 +51,10 @@ erDiagram
 
 These rules need context across several tables:
 
+- Only the driver of a ride accepts or rejects its requests, starts, completes or cancels it.
 - No requesting your own ride.
-- Requests only on scheduled rides.
+- Requests only on scheduled rides; rides can be cancelled only while scheduled.
+- A passenger can cancel a pending or an accepted request (accepted only while the ride is scheduled); this reopens the ride.
 - Conversations only for accepted requests.
 - Messages only from the two participants, in active conversations.
 - Reviews only after completion and only between participants.
