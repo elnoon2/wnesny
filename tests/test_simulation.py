@@ -229,3 +229,41 @@ def test_loader_rejects_invalid_data_and_changes_nothing(app, db_session, csv_di
         with pytest.raises(LoadError, match="validation"):
             load_into_db(csv_dir)
         assert db.session.scalar(select(func.count(User.id))) == 0
+
+
+def test_loader_stores_trip_metrics(app, db_session, csv_dir, dataset):
+    """distance, duration and detour reach the database; shared interests can be recomputed from user_interests."""
+    from sqlalchemy import text
+
+    with app.app_context():
+        load_into_db(csv_dir)
+        n_rides = db.session.scalar(select(func.count(Ride.id)).where(Ride.distance_km > 0, Ride.duration_min > 0))
+        n_req = db.session.scalar(select(func.count(RideRequest.id)).where(RideRequest.detour_min >= 0))
+        assert n_rides == 400 and n_req == 400
+        shared = db.session.execute(text(
+            "SELECT COUNT(*) FROM ride_requests rr JOIN rides r ON r.id = rr.ride_id "
+            "JOIN user_interests a ON a.user_id = r.driver_id "
+            "JOIN user_interests b ON b.user_id = rr.passenger_id AND b.interest_id = a.interest_id"
+        )).scalar()
+        assert shared == sum(int(t["shared_interests"]) for t in dataset.trips)
+
+
+def test_osm_checker_parses_and_compares_without_network():
+    from simulation import check_areas_osm as osm
+
+    assert osm.parse_result("[]") is None
+    assert osm.parse_result('[{"lat": "30.05", "lon": "31.25"}]') == (30.05, 31.25)
+    rows = osm.compare(fetch=lambda name: (30.0444, 31.2357), pause=0)
+    assert len(rows) == len(areas_module.AREAS)
+    downtown = next(r for r in rows if r["name"] == "Downtown")
+    assert downtown["km"] < 0.1
+
+
+def test_osm_checker_survives_a_service_that_does_not_answer():
+    from simulation import check_areas_osm as osm
+
+    def broken(name):
+        raise ConnectionError("timed out")
+
+    rows = osm.compare(fetch=broken, pause=0)
+    assert all(r["osm"] is None and r["error"] for r in rows)

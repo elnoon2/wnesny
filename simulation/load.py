@@ -10,8 +10,10 @@ What is loaded
 * ``interests.csv``       -> ``interests`` (matched by name, missing ones are added)
 * ``users.csv``           -> ``users`` (fake names and ``example.com`` e-mails, one shared dummy password hash)
 * ``user_interests.csv``  -> ``user_interests``
-* ``trips.csv``           -> ``rides`` (status ``completed``), one accepted ``ride_requests`` row per trip
-                             and one ``reviews`` row (rider rates driver)
+* ``trips.csv``           -> ``rides`` (status ``completed``, with ``distance_km`` and ``duration_min``), one accepted
+                             ``ride_requests`` row per trip (with ``detour_min``) and one ``reviews`` row (rider rates driver).
+                             ``shared_interests`` and ``is_peak`` are not stored: they can be computed from
+                             ``user_interests`` and ``departure_at``.
 
 ``areas.csv`` has no table: the current schema stores origin and destination as
 an address string plus optional coordinates, so the area name and its
@@ -122,6 +124,8 @@ def load_into_db(data_dir: Path = DEFAULT_OUT) -> dict[str, int]:
                 destination_latitude=float(dest["latitude"]),
                 destination_longitude=float(dest["longitude"]),
                 departure_at=departure,
+                distance_km=float(t["distance_km"]),
+                duration_min=float(t["duration_min"]),
                 status="completed",
                 created_at=departure - timedelta(days=1),
             )
@@ -133,6 +137,7 @@ def load_into_db(data_dir: Path = DEFAULT_OUT) -> dict[str, int]:
                     ride_id=ride.id,
                     passenger_id=passenger,
                     status="accepted",
+                    detour_min=float(t["detour_min"]),
                     created_at=departure - timedelta(hours=12),
                     updated_at=departure - timedelta(hours=6),
                 )

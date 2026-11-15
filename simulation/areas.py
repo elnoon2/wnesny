@@ -3,8 +3,9 @@
 The M1 proposal lists "~50 Cairo areas" from OpenStreetMap. The coordinates
 below were typed in by hand as approximate area centres (about 1 km accuracy).
 They are good enough for simulating distances, but they were NOT downloaded
-from OpenStreetMap. Before M5 the team should check them against
-https://www.openstreetmap.org (ODbL) and cite it.
+from OpenStreetMap. They were compared with OpenStreetMap on 15 Nov 2026 using
+``python -m simulation.check_areas_osm`` (see data/README.md for the result);
+OpenStreetMap contributors, ODbL, https://www.openstreetmap.org.
 
 Each entry: (name, zone, latitude, longitude, popularity)
 

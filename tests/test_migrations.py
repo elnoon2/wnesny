@@ -93,3 +93,26 @@ def test_seed_interests_is_idempotent(migrated_app):
     assert second == 0
     assert db.session.query(Interest).count() == len(INITIAL_INTERESTS)
 
+
+
+def test_migration_adds_trip_metric_columns_and_checks(migrated_app):
+    insp = inspect(db.engine)
+    assert {"distance_km", "duration_min"} <= {c["name"] for c in insp.get_columns("rides")}
+    assert "detour_min" in {c["name"] for c in insp.get_columns("ride_requests")}
+    sql = " ".join(
+        row[0] for row in db.session.execute(
+            text("SELECT sql FROM sqlite_master WHERE name IN ('rides', 'ride_requests')")
+        )
+    )
+    for name in ("chk_ride_distance_positive", "chk_ride_duration_positive", "chk_request_detour_nonnegative"):
+        assert name in sql
+
+
+def test_migration_models_and_migrations_agree(migrated_app):
+    """Alembic finds nothing left to change between the models and the migrated database."""
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+
+    with db.engine.connect() as conn:
+        diff = compare_metadata(MigrationContext.configure(conn), db.metadata)
+    assert diff == []

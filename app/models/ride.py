@@ -12,6 +12,14 @@ class Ride(db.Model):
             name="chk_ride_status_valid",
         ),
         CheckConstraint(
+            "distance_km IS NULL OR distance_km > 0",
+            name="chk_ride_distance_positive",
+        ),
+        CheckConstraint(
+            "duration_min IS NULL OR duration_min > 0",
+            name="chk_ride_duration_positive",
+        ),
+        CheckConstraint(
             "origin_latitude IS NULL OR (origin_latitude >= -90.0 AND origin_latitude <= 90.0)",
             name="chk_origin_latitude_range",
         ),
@@ -43,6 +51,9 @@ class Ride(db.Model):
     destination_latitude = db.Column(db.Float, nullable=True)
     destination_longitude = db.Column(db.Float, nullable=True)
     departure_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    # Estimated road distance (km) and trip time (minutes); optional, filled by the data loader.
+    distance_km = db.Column(db.Float, nullable=True)
+    duration_min = db.Column(db.Float, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default="scheduled", nullable=False, index=True)
     created_at = db.Column(
@@ -87,6 +98,8 @@ class Ride(db.Model):
         notes=None,
         status="scheduled",
         created_at=None,
+        distance_km=None,
+        duration_min=None,
     ):
         self.driver_id = driver_id
         self.origin_address = origin_address.strip() if origin_address else ""
@@ -97,6 +110,8 @@ class Ride(db.Model):
         self.destination_latitude = destination_latitude
         self.destination_longitude = destination_longitude
         self.notes = notes
+        self.distance_km = distance_km
+        self.duration_min = duration_min
         if status not in ("scheduled", "in_progress", "completed", "cancelled"):
             raise ValueError(f"Invalid ride status: {status}")
         self.status = status

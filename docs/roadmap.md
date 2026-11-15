@@ -4,7 +4,7 @@ This roadmap reflects the current state of the project: the database foundation 
 
 ```mermaid
 flowchart LR
-    A["Database foundation<br/>models, constraints, migrations,<br/>services, seed data, 103 tests"]:::done
+    A["Database foundation<br/>models, constraints, migrations,<br/>services, seed data, 109 tests"]:::done
     B["Authentication<br/>sessions, CSRF"]:::next
     C["HTTP routes / API"]:::planned
     D["Frontend pages<br/>Bootstrap 5 + Jinja2"]:::planned

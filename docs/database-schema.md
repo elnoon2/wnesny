@@ -74,6 +74,8 @@ erDiagram
         float destination_latitude
         float destination_longitude
         datetime departure_at
+        float distance_km
+        float duration_min
         text notes
         string status
         datetime created_at
@@ -85,6 +87,7 @@ erDiagram
         int passenger_id FK
         string status
         text message
+        float detour_min
         datetime created_at
         datetime updated_at
     }
@@ -200,6 +203,8 @@ Stores rides published by drivers.
 | `destination_latitude` | Float | Yes | None | **CHECK**: `-90.0 <= destination_latitude <= 90.0`. |
 | `destination_longitude` | Float | Yes | None | **CHECK**: `-180.0 <= destination_longitude <= 180.0`. |
 | `departure_at` | DateTime(tz) | No | None | **Indexed**. Planned departure time. |
+| `distance_km` | Float | Yes | None | **CHECK**: `distance_km > 0` when set. Estimated road distance. |
+| `duration_min` | Float | Yes | None | **CHECK**: `duration_min > 0` when set. Estimated trip time in minutes. |
 | `notes` | Text | Yes | None | Driver instructions (luggage, music, AC, quiet car, etc.). |
 | `status` | String(20) | No | `'scheduled'` | **CHECK**: `('scheduled', 'in_progress', 'completed', 'cancelled')`, **Indexed**. |
 | `created_at` | DateTime(tz) | No | `UTC now` | Publication timestamp. |
@@ -216,6 +221,7 @@ Stores passenger applications to join scheduled rides.
 | `passenger_id` | Integer | No | None | **Foreign Key** (`users.id`, `ON DELETE RESTRICT`), **Indexed**. |
 | `status` | String(20) | No | `'pending'` | **CHECK**: `('pending', 'accepted', 'rejected', 'cancelled')`, **Indexed**. |
 | `message` | Text | Yes | None | Optional introductory note from passenger. |
+| `detour_min` | Float | Yes | None | **CHECK**: `detour_min >= 0` when set. Extra minutes to pick this passenger up. |
 | `created_at` | DateTime(tz) | No | `UTC now` | Submission timestamp. |
 | `updated_at` | DateTime(tz) | No | `UTC now` | Last status modification timestamp. |
 

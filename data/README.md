@@ -11,6 +11,14 @@ numbers say nothing about real Egyptian passengers. This follows the M1 proposal
 | Period | 1 Aug 2026 to 31 Oct 2026 (92 days), simulated Cairo clock time |
 | Where | `data/raw/` (not committed, because it is fully reproducible from the seed) |
 
+## Why the data are simulated
+
+No public dataset records rides together with the interests of the two people and a compatibility rating, so the project
+cannot download one. Collecting real data would mean recording where real people travel and what they like, which needs
+written consent and is outside the scope of the course project. The data are therefore simulated with a documented, seeded
+model (see "Simulation model" below), and the simulated ratings come from a separate hidden model that the matching code
+never sees. Every result in this project is a result about the simulator, not about real passengers.
+
 ## How to regenerate, check and load
 
 ```bash
@@ -113,7 +121,8 @@ its address plus the area coordinates. Chat messages, conversations and notifica
 
 ## Known simplifications
 
-* Area coordinates are approximate and typed in by hand. Check them against OpenStreetMap (ODbL) and cite it before M5.
+* Area coordinates are approximate and typed in by hand. Run `python -m simulation.check_areas_osm` (needs internet) to compare them with OpenStreetMap (ODbL), fix the differences by hand in `simulation/areas.py`, and cite OpenStreetMap before M5. Result of the comparison (15 Nov 2026, search limited to Greater Cairo): 32 of the 50 areas are within 3 km of the OpenStreetMap point, 17 are further away and 1 ("Badya University area") was not found. The larger differences are mostly large districts and new cities, where the "centre" is a matter of definition (for example Heliopolis, Sheikh Zayed, 6th of October, New Cairo, Katameya, El Shorouk), or places where the geocoder picked another place with a similar name (for example Sayeda Zeinab 23 km, Haram 16 km, Shubra 6 km). No coordinate was changed, because the geocoder's answer is not more reliable than ours for these names. Distances in the simulation are therefore accurate to a few kilometres, which is enough for the coarse areas used here. OpenStreetMap contributors, ODbL.
+* In the database, `distance_km` and `duration_min` live on `rides` and `detour_min` on `ride_requests`. `shared_interests` and `is_peak` are not stored: they are computed from `user_interests` and `departure_at`.
 * The detour is random, not calculated from the rider's home.
 * One rating per trip (rider about driver); there is no review from the driver.
 * Pickup of the rider is not a separate area: each trip has one origin and one destination.
