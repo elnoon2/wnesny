@@ -1,45 +1,40 @@
 # Wnesny (ونسني): Interest-Based Ride Matching
 
-> **Wnesny** (Egyptian Arabic for *"keep me company"*) is a ride-sharing and social-matching web platform. It connects drivers and passengers who travel in similar directions and share interests, so the trip is also good company.
+Wnesny (Egyptian Arabic for "keep me company") is a ride-sharing and social-matching web platform. It connects drivers and passengers who travel in similar directions and share interests, so the trip is also good company.
 
-Integrated Mega Project, Fall 2026 | AI 306, CS 312, CO 208 | School of Computing and Data Science, Badya University
+**Integrated Mega Project, Fall 2026** | AI 306, CS 312, CO 208 | School of Computing and Data Science, Badya University
 
 > [!IMPORTANT]
-> **Project status: database foundation complete.** The data layer (models, constraints, migrations, service functions, seed data, tests) is implemented and tested. The web interface, authentication pages, HTTP routes and the AI matching engine are **planned, not yet implemented**. See [Current implementation status](#current-implementation-status).
-
----
+> **Project status: database foundation complete.** The data layer (models, constraints, migrations, service functions, seed data, tests) is implemented and tested. The web interface, authentication pages, HTTP routes and the AI matching engine are planned, not yet implemented. See [Current implementation status](#current-implementation-status).
 
 ## Table of contents
 
-1. [Project overview](#project-overview)
-2. [Problem statement](#problem-statement)
-3. [Proposed solution](#proposed-solution)
-4. [Objectives](#objectives)
-5. [Target users](#target-users)
-6. [Main features](#main-features)
-7. [Technical architecture](#technical-architecture)
-8. [Technology stack](#technology-stack)
-9. [Repository structure](#repository-structure)
-10. [Database schema overview](#database-schema-overview)
-11. [Database relationships](#database-relationships)
-12. [Installation](#installation)
-13. [Environment configuration](#environment-configuration)
-14. [Database migrations](#database-migrations)
-15. [Seed data](#seed-data)
-16. [Testing](#testing)
-17. [Current implementation status](#current-implementation-status)
-18. [Development roadmap](#development-roadmap)
-19. [Team](#team)
-20. [Documentation](#documentation)
-21. [License](#license)
-
----
+- [Project overview](#project-overview)
+- [Problem statement](#problem-statement)
+- [Proposed solution](#proposed-solution)
+- [Objectives](#objectives)
+- [Target users](#target-users)
+- [Main features](#main-features)
+- [Technical architecture](#technical-architecture)
+- [Technology stack](#technology-stack)
+- [Repository structure](#repository-structure)
+- [Database schema overview](#database-schema-overview)
+- [Installation](#installation)
+- [Environment configuration](#environment-configuration)
+- [Database migrations](#database-migrations)
+- [Seed data](#seed-data)
+- [Testing](#testing)
+- [Current implementation status](#current-implementation-status)
+- [Development roadmap](#development-roadmap)
+- [Team](#team)
+- [Documentation](#documentation)
+- [License](#license)
 
 ## Project overview
 
-Wnesny lets one registered account act as a **driver** on one trip and a **passenger** on another; there are no separate account types. A driver publishes a ride, passengers request to join, and the driver accepts exactly one passenger. Once accepted, the two can chat inside the platform. After the ride is completed, they can review each other.
+Wnesny lets one registered account act as a driver on one trip and a passenger on another; there are no separate account types. A driver publishes a ride, passengers request to join, and the driver accepts exactly one passenger. Once accepted, the two can chat inside the platform. After the ride is completed, they can review each other.
 
-What makes Wnesny different from ordinary ride-hailing is **compatibility-based matching**: besides route and time, it considers shared interests, optional education background (only when the user chooses to share it), and conversation preferences.
+What makes Wnesny different from ordinary ride-hailing is compatibility-based matching: besides route and time, it considers shared interests, optional education background (only when the user chooses to share it), and conversation preferences.
 
 ## Problem statement
 
@@ -47,11 +42,11 @@ Many drivers dislike driving alone on long trips, and many riders would enjoy co
 
 ## Proposed solution
 
-Wnesny matches a driver and a rider whose **routes, departure times and interests** fit, and explains *why* a match was suggested (for example, shared interests and compatible routes). Privacy is built into the data model: education details have a visibility setting (`public`, `matches_only`, `private`), and the platform stores coarse addresses and optional coordinates only. There is no live GPS tracking.
+Wnesny matches a driver and a rider whose routes, departure times and interests fit, and explains why a match was suggested (for example, shared interests and compatible routes). Privacy is built into the data model: education details have a visibility setting (`public`, `matches_only`, `private`), and the platform stores coarse addresses and optional coordinates only. There is no live GPS tracking.
 
 ## Objectives
 
-The academic objectives are defined in the [M1 proposal](docs/proposal/M1_Wnesny_proposal.pdf) and quoted here verbatim:
+The academic objectives are defined in the M1 proposal and quoted here verbatim:
 
 1. Raise the mean simulated trip-compatibility rating (1–5) by at least 0.5 points compared with random matching, over at least 1,000 simulated requests.
 2. Satisfy all hard constraints (pickup detour ≤ 10 minutes, departure within ±15 minutes, available seats) in at least 95% of matches produced.
@@ -59,23 +54,23 @@ The academic objectives are defined in the [M1 proposal](docs/proposal/M1_Wnesny
 4. Deliver a working web application with at least 4 pages, a results dashboard, and an AI demo page usable by a non-technical person.
 
 > [!NOTE]
-> The current database (schema V1.0) supports **one accepted passenger per ride**, so "available seats" is always one. See [docs/proposal/README.md](docs/proposal/README.md) for the known differences between the proposal and the implementation.
+> The current database (schema V1.0) supports one accepted passenger per ride, so "available seats" is always one. See [docs/proposal/README.md](docs/proposal/README.md) for the known differences between the proposal and the implementation.
 
 ## Target users
 
-- **Drivers** who travel regularly and would prefer company on the road.
-- **Passengers** who want a ride with someone they are likely to get along with.
-- The **general public**. The platform is not limited to university students.
+- Drivers who travel regularly and would prefer company on the road.
+- Passengers who want a ride with someone they are likely to get along with.
+- The general public. The platform is not limited to university students.
 
 ## Main features
 
 | Feature | Status |
-|---|---|
+|---------|--------|
 | User accounts with hashed passwords and normalized emails (data layer) | ✅ Implemented |
 | Optional user profile with education-visibility privacy setting | ✅ Implemented |
 | Interest catalogue (32 interests, 8 categories) and user–interest assignment | ✅ Implemented |
 | Ride publishing with coordinate validation and status lifecycle | ✅ Implemented |
-| Ride requests with **at most one accepted passenger per ride** | ✅ Implemented |
+| Ride requests with at most one accepted passenger per ride | ✅ Implemented |
 | Transaction-safe acceptance that auto-rejects competing pending requests | ✅ Implemented |
 | Conversation created only after acceptance; participant-only messaging | ✅ Implemented (service layer) |
 | Ride cancellation that preserves history, freezes chat and notifies the passenger | ✅ Implemented (service layer) |
@@ -87,40 +82,19 @@ The academic objectives are defined in the [M1 proposal](docs/proposal/M1_Wnesny
 | Synthetic data generation, statistical analysis, dashboard | ⏳ Planned |
 
 > [!NOTE]
-> The database stores the information that the matching engine will need (interests, education with visibility, coordinates, departure times), but **no matching algorithm is implemented yet**.
+> The database stores the information that the matching engine will need (interests, education with visibility, coordinates, departure times), but no matching algorithm is implemented yet.
 
 ## Technical architecture
 
-Wnesny is a modular Flask application using the **application factory** pattern. Business rules live in a **service layer**, separate from the models; HTTP routes will call this layer once they are built.
+Wnesny is a modular Flask application using the application factory pattern. Business rules live in a service layer, separate from the models; HTTP routes will call this layer once they are built.
 
-```mermaid
-flowchart TD
-    subgraph Planned["Planned (not yet implemented)"]
-        UI["Web UI: Jinja2 + Bootstrap"]
-        Routes["Flask blueprints / routes"]
-        AI["AI matching engine"]
-    end
-    subgraph Implemented["Implemented"]
-        Factory["create_app() in app/__init__.py"]
-        Services["Service layer: app/services/database_service.py"]
-        Models["SQLAlchemy models: app/models/"]
-        Migrations["Flask-Migrate / Alembic: migrations/"]
-    end
-    DB[("SQLite (dev/test) or PostgreSQL (prod)")]
-
-    UI --> Routes --> Services
-    AI -.-> Services
-    Factory --> Services
-    Services --> Models --> DB
-    Migrations --> DB
-```
-
-See [docs/architecture.md](docs/architecture.md) for module responsibilities and design decisions.
+- Architecture diagram: [docs/diagrams/architecture.md](docs/diagrams/architecture.md)
+- Module responsibilities and design decisions: [docs/architecture.md](docs/architecture.md)
 
 ## Technology stack
 
 | Layer | Technology |
-|---|---|
+|-------|------------|
 | Language | Python 3.12+ |
 | Web framework | Flask 3 |
 | ORM | SQLAlchemy 2 via Flask-SQLAlchemy |
@@ -149,8 +123,10 @@ wnesny/
 ├── tests/                       # pytest suite (models, relationships, constraints, services, migrations)
 ├── docs/
 │   ├── proposal/                # M1 project proposal (PDF)
+│   ├── diagrams/                # Architecture and database relationship diagrams
 │   ├── architecture.md
 │   ├── database-schema.md       # Data dictionary + Mermaid ERD
+│   ├── roadmap.md
 │   ├── testing.md
 │   ├── development-progress.md
 │   └── ai_use_statement.md
@@ -167,54 +143,35 @@ wnesny/
 
 ## Database schema overview
 
-Ten tables, normalized to 3NF. Full data dictionary: [docs/database-schema.md](docs/database-schema.md).
+Ten tables, normalized to 3NF. Full data dictionary: [docs/database-schema.md](docs/database-schema.md). Relationship diagram: [docs/diagrams/database-relationships.md](docs/diagrams/database-relationships.md).
 
 | Table | Purpose |
-|---|---|
+|-------|---------|
 | `users` | Accounts (driver and passenger roles share one account) |
 | `user_profiles` | Optional bio and education data plus `education_visibility` |
 | `interests` | Predefined interest catalogue |
 | `user_interests` | Many-to-many link between users and interests (composite PK) |
 | `rides` | Rides published by drivers, with optional coordinates and a status |
-| `ride_requests` | Passenger requests (`pending`, `accepted`, `rejected`, `cancelled`) |
+| `ride_requests` | Passenger requests (pending, accepted, rejected, cancelled) |
 | `conversations` | One chat per accepted request |
 | `messages` | Chat messages (non-empty, read status) |
 | `reviews` | Post-ride ratings (1–5) |
 | `notifications` | Persistent in-app notifications |
 
-Key integrity rules enforced **in the database**:
+**Key integrity rules enforced in the database:**
 
 - Unique emails; unique interest names; composite PK on `user_interests`.
-- CHECK constraints for statuses, education visibility, coordinate ranges, rating range, non-empty messages and no self-review.
+- `CHECK` constraints for statuses, education visibility, coordinate ranges, rating range, non-empty messages and no self-review.
 - `UNIQUE (ride_id, passenger_id)`: one request per passenger per ride.
-- **Partial unique index** `uq_accepted_request_per_ride ON ride_requests(ride_id) WHERE status = 'accepted'`: at most one accepted passenger per ride (SQLite ≥ 3.8 and PostgreSQL).
+- Partial unique index `uq_accepted_request_per_ride ON ride_requests(ride_id) WHERE status = 'accepted'`: at most one accepted passenger per ride (SQLite ≥ 3.8 and PostgreSQL).
 - `UNIQUE (ride_id, reviewer_id, reviewed_user_id)`: no duplicate reviews.
 - Foreign keys enforced in SQLite via `PRAGMA foreign_keys=ON`; `RESTRICT` on driver/passenger/sender/reviewer keys, so history cannot be deleted by accident.
 
-Rules enforced **in the service layer** (they need context across several tables): no requesting your own ride, requests only on `scheduled` rides, conversations only for accepted requests, messages only from the two participants in active conversations, reviews only after completion and only between participants.
-
-## Database relationships
-
-```mermaid
-erDiagram
-    users ||--o| user_profiles : "has"
-    users ||--o{ user_interests : "selects"
-    interests ||--o{ user_interests : "chosen by"
-    users ||--o{ rides : "drives"
-    users ||--o{ ride_requests : "requests"
-    rides ||--o{ ride_requests : "receives"
-    ride_requests ||--o| conversations : "opens on acceptance"
-    conversations ||--o{ messages : "contains"
-    users ||--o{ messages : "sends"
-    rides ||--o{ reviews : "reviewed in"
-    users ||--o{ reviews : "writes / receives"
-    users ||--o{ notifications : "receives"
-    rides ||--o{ notifications : "referenced by"
-```
+**Rules enforced in the service layer** (they need context across several tables): no requesting your own ride, requests only on scheduled rides, conversations only for accepted requests, messages only from the two participants in active conversations, reviews only after completion and only between participants.
 
 ## Installation
 
-Prerequisites: **Python 3.12+** and Git.
+Prerequisites: Python 3.12+ and Git.
 
 ```bash
 git clone <repository-url> wnesny
@@ -241,15 +198,15 @@ cp .env.example .env
 ```
 
 | Variable | Required | Description |
-|---|---|---|
+|----------|----------|-------------|
 | `WNESNY_ENV` | No | `development` (default), `testing` or `production` |
-| `SECRET_KEY` | **Production** | Long random string. Generate one with `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `DATABASE_URL` | **Production** | SQLAlchemy URL. Defaults to `instance/wnesny_dev.db` in development. Relative SQLite paths resolve inside `instance/`. |
+| `SECRET_KEY` | Production | Long random string. Generate one with `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `DATABASE_URL` | Production | SQLAlchemy URL. Defaults to `instance/wnesny_dev.db` in development. Relative SQLite paths resolve inside `instance/`. |
 | `TEST_DATABASE_URL` | No | Overrides the test database (defaults to in-memory SQLite) |
 
 The application refuses to start in production mode without `SECRET_KEY` and `DATABASE_URL`. Never commit `.env`.
 
-> PostgreSQL requires a driver (for example `pip install "psycopg[binary]"`). It is not included in `requirements.txt` because development uses SQLite.
+PostgreSQL requires a driver (for example `pip install "psycopg[binary]"`). It is not included in `requirements.txt` because development uses SQLite.
 
 ## Database migrations
 
@@ -273,7 +230,7 @@ flask --app run.py db upgrade
 python seed_interests.py
 ```
 
-The script inserts 32 predefined interests across 8 categories (Technology, Business, Sports, Arts & Culture, Music, Lifestyle, Gaming & Hobbies, Social). It is **idempotent**: running it again inserts nothing new. It requires the schema to be migrated first and never creates tables itself.
+The script inserts 32 predefined interests across 8 categories (Technology, Business, Sports, Arts & Culture, Music, Lifestyle, Gaming & Hobbies, Social). It is idempotent: running it again inserts nothing new. It requires the schema to be migrated first and never creates tables itself.
 
 To inspect the development database:
 
@@ -291,12 +248,12 @@ python -m pytest tests/test_constraints.py
 
 Tests run against isolated SQLite databases (in-memory, or a temporary file for migration tests). They never touch `instance/wnesny_dev.db`. Details: [docs/testing.md](docs/testing.md).
 
-**Last verified result:** 42 passed, 0 failed (Python 3.12.10, pytest 9.2.0, Windows).
+Last verified result: **42 passed, 0 failed** (Python 3.12.10, pytest 9.2.0, Windows).
 
 ## Current implementation status
 
 | Area | Status |
-|---|---|
+|------|--------|
 | Application factory, configuration, extensions | ✅ Done |
 | 10 SQLAlchemy models with constraints and indexes | ✅ Done |
 | Initial Alembic migration (verified by tests: upgrade, partial index, CHECKs, downgrade) | ✅ Done |
@@ -311,22 +268,16 @@ Tests run against isolated SQLite databases (in-memory, or a temporary file for 
 
 ## Development roadmap
 
-```mermaid
-flowchart LR
-    P1["1. Database foundation (done)"] --> P2["2. Authentication and profiles"]
-    P2 --> P3["3. Ride and request routes"]
-    P3 --> P4["4. Chat and notifications UI"]
-    P4 --> P5["5. AI matching engine and evaluation"]
-    P5 --> P6["6. Frontend polish, dashboard, security review"]
-    P6 --> P7["7. Final documentation and delivery"]
-```
+The database foundation is complete. Next steps are authentication, HTTP routes, frontend pages, the AI matching engine, synthetic data and analysis, and finally the dashboard and evaluation.
+
+See the full roadmap with a diagram in [docs/roadmap.md](docs/roadmap.md).
 
 ## Team
 
 Team members and lead roles, as listed in the M1 proposal:
 
 | Member | Lead role |
-|---|---|
+|--------|-----------|
 | Youssef Essam | Project manager |
 | Nour Elkassy | Data and statistics lead |
 | Mohamed Osama | AI lead |
@@ -338,9 +289,12 @@ Individual contributions are recorded in the Git history.
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Architecture diagram](docs/diagrams/architecture.md)
 - [Database schema and ERD](docs/database-schema.md)
+- [Database relationships diagram](docs/diagrams/database-relationships.md)
 - [Testing](docs/testing.md)
 - [Development progress](docs/development-progress.md)
+- [Development roadmap](docs/roadmap.md)
 - [Project proposal (M1)](docs/proposal/README.md)
 - [AI-use statement](docs/ai_use_statement.md)
 
