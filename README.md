@@ -1,4 +1,4 @@
-# Wnesny (ونسني): Interest-Based Ride Matching
+# Wnesny : Interest-Based Ride Matching
 
 Wnesny (Egyptian Arabic for "keep me company") is a ride-sharing and social-matching web platform. It connects drivers and passengers who travel in similar directions and share interests, so the trip is also good company.
 
