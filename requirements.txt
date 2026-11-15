@@ -1,13 +1,10 @@
-numpy
-pandas
-scipy
-statsmodels
-scikit-learn
-matplotlib
-seaborn
-networkx
-osmnx
-folium
-flask
-pytest
-jupyter
+# Wnesny (ونسني) - application and test dependencies
+Flask>=3.1,<4
+Flask-SQLAlchemy>=3.1,<4
+SQLAlchemy>=2.0,<3
+Flask-Migrate>=4.1,<5
+Werkzeug>=3.1,<4
+python-dotenv>=1.0,<2
+
+# Testing
+pytest>=8.0

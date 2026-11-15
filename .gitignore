@@ -1,7 +1,38 @@
+# Python & Virtual Environments
 .venv/
+venv/
+env/
 __pycache__/
-*.pyc
-.ipynb_checkpoints/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Environment and Secrets
+.env
+.env.local
+
+# Database files & Instance folder
+instance/
 *.db
+*.sqlite
+*.sqlite3
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data caches
 data/raw/*
 !data/raw/.gitkeep

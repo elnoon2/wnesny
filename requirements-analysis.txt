@@ -1,0 +1,12 @@
+# Optional: data analysis / statistics tooling planned in the M1 proposal
+# (synthetic data generation, notebooks, statistical tests).
+# Not required to run the application or the test suite.
+-r requirements.txt
+numpy>=1.26
+pandas>=2.2
+scipy>=1.13
+statsmodels>=0.14
+matplotlib>=3.8
+seaborn>=0.13
+jupyter>=1.0
+
