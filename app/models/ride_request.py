@@ -11,6 +11,10 @@ class RideRequest(db.Model):
             "status IN ('pending', 'accepted', 'rejected', 'cancelled')",
             name="chk_request_status_valid",
         ),
+        CheckConstraint(
+            "detour_min IS NULL OR detour_min >= 0",
+            name="chk_request_detour_nonnegative",
+        ),
         # Prevents duplicate requests by the same passenger for the same ride
         UniqueConstraint("ride_id", "passenger_id", name="uq_ride_passenger"),
         # Partial unique index enforcing the core rule: AT MOST ONE ACCEPTED REQUEST PER RIDE.
@@ -39,6 +43,8 @@ class RideRequest(db.Model):
     )
     status = db.Column(db.String(20), default="pending", nullable=False, index=True)
     message = db.Column(db.Text, nullable=True)
+    # Extra minutes the driver needs to pick this passenger up; optional, filled by the data loader.
+    detour_min = db.Column(db.Float, nullable=True)
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -74,6 +80,7 @@ class RideRequest(db.Model):
         message=None,
         created_at=None,
         updated_at=None,
+        detour_min=None,
     ):
         self.ride_id = ride_id
         self.passenger_id = passenger_id
@@ -81,6 +88,7 @@ class RideRequest(db.Model):
             raise ValueError(f"Invalid request status: {status}")
         self.status = status
         self.message = message
+        self.detour_min = detour_min
         now = datetime.now(timezone.utc)
         self.created_at = created_at or now
         self.updated_at = updated_at or now

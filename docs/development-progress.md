@@ -36,8 +36,9 @@ The repository was originally created for **Nabd** (*Smart Hospital and Blood Do
 - `simulation/` package: ~50 Cairo areas, seeded generator (`python -m simulation.generate`), hidden rating model, validator and database loader.
 - Dataset: 600 users, 32 interests, 3,000 completed trips with ratings, written to `data/raw/` (reproducible from the seed, not committed).
 - Data dictionary and simulation model in `data/README.md`; first exploratory notebook `notebooks/01_eda.ipynb`.
-- 29 new tests for the data layer (and 32 regression tests for the review fixes above); 103 automated tests passing in total.
-- Open items: area coordinates are hand-typed approximations (verify against OpenStreetMap); gender preference is recorded in the data but not modelled in the schema.
+- 32 new tests for the data layer (and 32 regression tests for the review fixes above); 109 automated tests passing in total.
+- Requirements document, use-case and class diagrams, optional Dockerfile, and a justification for simulated data. The AI component is not implemented (Cyber Security track; to be confirmed with the supervisor).
+- Open items: area coordinates are hand-typed approximations (compared with OpenStreetMap: 32 of 50 within 3 km, see `data/README.md`); gender preference is recorded in the data but not modelled in the schema.
 
 ## Next phases (planned)
 

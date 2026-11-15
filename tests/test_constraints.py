@@ -316,3 +316,26 @@ def test_deleting_passenger_with_requests_is_blocked(db_session):
         db_session.commit()
     db_session.rollback()
     assert db_session.get(RideRequest, req_id) is not None
+
+
+def test_trip_metrics_must_be_positive(db_session):
+    """distance/duration must be > 0 and detour >= 0 when they are set."""
+    driver = User(full_name="Driver", email="d@example.com", password="Password123")
+    rider = User(full_name="Rider", email="r@example.com", password="Password123")
+    db_session.add_all([driver, rider])
+    db_session.commit()
+    when = datetime.now(timezone.utc) + timedelta(days=1)
+
+    db_session.add(Ride(driver_id=driver.id, origin_address="A", destination_address="B", departure_at=when, distance_km=-1.0))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    ride = Ride(driver_id=driver.id, origin_address="A", destination_address="B", departure_at=when,
+                distance_km=5.0, duration_min=12.0)
+    db_session.add(ride)
+    db_session.commit()
+    db_session.add(RideRequest(ride_id=ride.id, passenger_id=rider.id, detour_min=-2.0))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

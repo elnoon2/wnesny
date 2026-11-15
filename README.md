@@ -20,6 +20,7 @@ Wnesny (Egyptian Arabic for "keep me company") is a ride-sharing and social-matc
 - [Repository structure](#repository-structure)
 - [Database schema overview](#database-schema-overview)
 - [Installation](#installation)
+- [Docker (optional)](#docker-optional)
 - [Environment configuration](#environment-configuration)
 - [Database migrations](#database-migrations)
 - [Seed data](#seed-data)
@@ -130,6 +131,7 @@ wnesny/
 │   ├── M1_Proposal_Updated_Wnesny.pdf  # M1 proposal updated to the real design (PDF)
 │   ├── diagrams/                # Architecture and database relationship diagrams
 │   ├── architecture.md
+│   ├── requirements.md          # Functional and non-functional requirements
 │   ├── database-schema.md       # Data dictionary + Mermaid ERD
 │   ├── roadmap.md
 │   ├── testing.md
@@ -141,6 +143,8 @@ wnesny/
 ├── config.py                    # Development / Testing / Production configuration
 ├── run.py                       # Flask entry point + shell context
 ├── seed_interests.py            # Idempotent interest catalogue seed
+├── Dockerfile                   # Optional Docker image (see "Docker")
+├── docker/entrypoint.sh         # Container start script
 ├── requirements.txt             # App + test dependencies
 ├── requirements-analysis.txt    # Optional analysis dependencies
 ├── pytest.ini
@@ -193,6 +197,34 @@ pip install -r requirements.txt
 # Optional, for planned data analysis work:
 # pip install -r requirements-analysis.txt
 ```
+
+## Docker (optional)
+
+The image packages the application, its dependencies and the simulation package. It needs Docker only; no Python install.
+The web pages are not built yet (milestone M4), so the container serves the Flask app (an empty site for now), creates the
+database schema and loads the interest catalogue on every start.
+
+```bash
+# 1. Build the image (from the repository root)
+docker build -t wnesny .
+
+# 2. Run the application. Port 5000, database stored in the named volume "wnesny-db" (mounted at /data)
+docker run --rm -p 5000:5000 -v wnesny-db:/data wnesny
+# then open http://localhost:5000
+
+# 3. Generate, validate and load the synthetic data into the same database (writes CSV files to ./data/raw)
+docker run --rm -v wnesny-db:/data -v "$(pwd)/data/raw:/app/data/raw" wnesny \
+    sh -c "python -m simulation.generate && python -m simulation.validate && python -m simulation.load"
+
+# 4. Run the test suite
+docker run --rm wnesny python -m pytest -q
+```
+
+On Windows PowerShell replace `$(pwd)` with `${PWD}`. Environment variables (defaults are set in the image): `WNESNY_ENV=development`,
+`DATABASE_URL=sqlite:////data/wnesny.db`. To use another secret or database, add `-e SECRET_KEY=...` or `-e DATABASE_URL=...`.
+Jupyter is not in the image; run the notebook locally.
+
+> The Dockerfile steps (migrate, seed, generate, validate, load, serve) were run outside Docker, but the image itself has not been built yet. Run step 1 once and fix anything it reports before relying on this bonus.
 
 ## Environment configuration
 
@@ -266,7 +298,7 @@ python -m pytest tests/test_constraints.py
 
 Tests run against isolated SQLite databases (in-memory, or a temporary file for migration tests). They never touch `instance/wnesny_dev.db`. Details: [docs/testing.md](docs/testing.md).
 
-Last verified result: **103 passed, 0 failed** (Linux, Python 3.13). The 42 database tests were also verified on Windows with Python 3.12.10.
+Last verified result: **109 passed, 0 failed** (Linux, Python 3.13). The 42 database tests were also verified on Windows with Python 3.12.10.
 
 ## Current implementation status
 
@@ -277,7 +309,7 @@ Last verified result: **103 passed, 0 failed** (Linux, Python 3.13). The 42 data
 | Initial Alembic migration (verified by tests: upgrade, partial index, CHECKs, downgrade) | ✅ Done |
 | Database service layer (requests, acceptance, cancellation, chat, reviews, notifications) | ✅ Done |
 | Interest seed script | ✅ Done |
-| Automated tests (103) | ✅ Passing |
+| Automated tests (109) | ✅ Passing |
 | Authentication, sessions, CSRF | ⏳ Not started |
 | HTTP routes / API | ⏳ Not started |
 | Frontend pages | ⏳ Not started |
@@ -308,6 +340,9 @@ Individual contributions are recorded in the Git history.
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Requirements](docs/requirements.md)
+- [Use-case diagram](docs/diagrams/use-cases.md)
+- [Class diagram](docs/diagrams/class-diagram.md)
 - [Architecture diagram](docs/diagrams/architecture.md)
 - [Database schema and ERD](docs/database-schema.md)
 - [Database relationships diagram](docs/diagrams/database-relationships.md)
