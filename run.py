@@ -1,4 +1,4 @@
-﻿"""Wnesny (ونسني) entry point: ``flask --app run.py <command>`` or ``python run.py``."""
+"""Wnesny (ونسني) entry point: ``flask --app run.py <command>`` or ``python run.py``."""
 
 import os
 from app import create_app

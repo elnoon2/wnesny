@@ -17,6 +17,7 @@ def create_app(config_name=None) -> Flask:
         config_name: An environment name (``development``, ``testing``,
             ``production``) or a configuration class. Defaults to the
             ``WNESNY_ENV`` environment variable, then ``development``.
+            An unknown name raises ``ValueError``.
     """
     if config_name is None:
         config_name = os.getenv("WNESNY_ENV", "development")
@@ -24,7 +25,14 @@ def create_app(config_name=None) -> Flask:
     flask_app = Flask(__name__, instance_path=os.fspath(INSTANCE_DIR))
 
     if isinstance(config_name, str):
-        config_class = config_by_name.get(config_name, config_by_name["default"])
+        # A typo such as "prodcution" must not silently start the insecure
+        # development configuration, so unknown names fail fast.
+        config_class = config_by_name.get(config_name)
+        if config_class is None:
+            raise ValueError(
+                f"Unknown environment '{config_name}'. "
+                f"Use one of: {', '.join(sorted(config_by_name))}."
+            )
     else:
         config_class = config_name
     flask_app.config.from_object(config_class)

@@ -1,11 +1,11 @@
-# Wnesny (ونسني): Interest-Based Ride Matching
+# Wnesny : Interest-Based Ride Matching
 
 Wnesny (Egyptian Arabic for "keep me company") is a ride-sharing and social-matching web platform. It connects drivers and passengers who travel in similar directions and share interests, so the trip is also good company.
 
 **Integrated Mega Project, Fall 2026** | AI 306, CS 312, CO 208 | School of Computing and Data Science, Badya University
 
 > [!IMPORTANT]
-> **Project status: database foundation complete.** The data layer (models, constraints, migrations, service functions, seed data, tests) is implemented and tested. The web interface, authentication pages, HTTP routes and the AI matching engine are planned, not yet implemented. See [Current implementation status](#current-implementation-status).
+> **Project status: M2 (data and database) complete.** The database (models, constraints, migrations, service functions, seed data) and the synthetic data layer (generator, validator, loader, data dictionary, first EDA notebook) are implemented and tested. The web interface, authentication pages, HTTP routes, statistics and the AI matching engine are planned, not yet implemented. See [Current implementation status](#current-implementation-status).
 
 ## Table of contents
 
@@ -76,10 +76,12 @@ The academic objectives are defined in the M1 proposal and quoted here verbatim:
 | Ride cancellation that preserves history, freezes chat and notifies the passenger | ✅ Implemented (service layer) |
 | Reviews (1–5) only after completion, only between participants, no self-reviews | ✅ Implemented (service layer) |
 | Persistent in-app notifications | ✅ Implemented (data + service layer) |
+| Synthetic dataset (600 users, 3,000 trips), validator and loader | ✅ Implemented |
+| First exploratory analysis notebook | ✅ Implemented |
 | Authentication pages, sessions, CSRF protection | ⏳ Planned |
 | HTTP routes / API and web pages (Bootstrap + Jinja2) | ⏳ Planned |
 | AI matching engine (compatibility scoring, ranking, explanations) | ⏳ Planned |
-| Synthetic data generation, statistical analysis, dashboard | ⏳ Planned |
+| Statistical analysis (CIs, hypothesis tests) and dashboard | ⏳ Planned (M3 onwards) |
 
 > [!NOTE]
 > The database stores the information that the matching engine will need (interests, education with visibility, coordinates, departure times), but no matching algorithm is implemented yet.
@@ -119,19 +121,23 @@ wnesny/
 │   │   └── review.py, notification.py
 │   └── services/
 │       └── database_service.py  # Transactional business rules
+├── simulation/                  # Synthetic data: areas, generator, rating model, validator, loader
 ├── migrations/                  # Alembic environment + initial migration
-├── tests/                       # pytest suite (models, relationships, constraints, services, migrations)
+├── tests/                       # pytest suite (models, relationships, constraints, services, migrations, simulation)
 ├── docs/
-│   ├── proposal/                # M1 project proposal (PDF)
+│   ├── proposal/                # Original M1 project proposal (PDF)
+│   ├── M2_Report_Wnesny.pdf     # M2 submission report (PDF)
+│   ├── M1_Proposal_Updated_Wnesny.pdf  # M1 proposal updated to the real design (PDF)
 │   ├── diagrams/                # Architecture and database relationship diagrams
 │   ├── architecture.md
 │   ├── database-schema.md       # Data dictionary + Mermaid ERD
 │   ├── roadmap.md
 │   ├── testing.md
 │   ├── development-progress.md
+│   ├── progress_log.md
 │   └── ai_use_statement.md
-├── data/raw/, data/cleaned/     # Reserved for planned synthetic datasets
-├── notebooks/                   # Reserved for planned analysis notebooks
+├── data/                        # README.md = data dictionary; raw/ holds generated CSV files (not committed)
+├── notebooks/                   # 01_eda.ipynb: first exploratory analysis
 ├── config.py                    # Development / Testing / Production configuration
 ├── run.py                       # Flask entry point + shell context
 ├── seed_interests.py            # Idempotent interest catalogue seed
@@ -167,7 +173,7 @@ Ten tables, normalized to 3NF. Full data dictionary: [docs/database-schema.md](d
 - `UNIQUE (ride_id, reviewer_id, reviewed_user_id)`: no duplicate reviews.
 - Foreign keys enforced in SQLite via `PRAGMA foreign_keys=ON`; `RESTRICT` on driver/passenger/sender/reviewer keys, so history cannot be deleted by accident.
 
-**Rules enforced in the service layer** (they need context across several tables): no requesting your own ride, requests only on scheduled rides, conversations only for accepted requests, messages only from the two participants in active conversations, reviews only after completion and only between participants.
+**Rules enforced in the service layer** (they need context across several tables): only the driver accepts, rejects, starts, completes or cancels a ride; no requesting your own ride; requests only on scheduled rides; rides can be cancelled only while scheduled; conversations only for accepted requests; messages only from the two participants in active conversations; reviews only after the ride is completed and only between participants. The ride lifecycle is `scheduled` → `in_progress` → `completed` (or `cancelled`); see [docs/architecture.md](docs/architecture.md).
 
 ## Installation
 
@@ -238,6 +244,18 @@ To inspect the development database:
 python -c "import sqlite3; c = sqlite3.connect('instance/wnesny_dev.db'); print([r[0] for r in c.execute(\"SELECT name FROM sqlite_master WHERE type='table'\")])"
 ```
 
+## Synthetic data (M2)
+
+All data is simulated. Generate, check and load it with:
+
+```bash
+python -m simulation.generate     # data/raw/*.csv (seed 42)
+python -m simulation.validate     # integrity checks
+python -m simulation.load         # users, rides, requests and reviews into the database
+```
+
+The data dictionary, the simulation model and the known simplifications are in [data/README.md](data/README.md). The first exploratory analysis is in [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb) (needs `requirements-analysis.txt`).
+
 ## Testing
 
 ```bash
@@ -248,7 +266,7 @@ python -m pytest tests/test_constraints.py
 
 Tests run against isolated SQLite databases (in-memory, or a temporary file for migration tests). They never touch `instance/wnesny_dev.db`. Details: [docs/testing.md](docs/testing.md).
 
-Last verified result: **42 passed, 0 failed** (Python 3.12.10, pytest 9.2.0, Windows).
+Last verified result: **103 passed, 0 failed** (Linux, Python 3.13). The 42 database tests were also verified on Windows with Python 3.12.10.
 
 ## Current implementation status
 
@@ -259,12 +277,13 @@ Last verified result: **42 passed, 0 failed** (Python 3.12.10, pytest 9.2.0, Win
 | Initial Alembic migration (verified by tests: upgrade, partial index, CHECKs, downgrade) | ✅ Done |
 | Database service layer (requests, acceptance, cancellation, chat, reviews, notifications) | ✅ Done |
 | Interest seed script | ✅ Done |
-| Automated tests (42) | ✅ Passing |
+| Automated tests (103) | ✅ Passing |
 | Authentication, sessions, CSRF | ⏳ Not started |
 | HTTP routes / API | ⏳ Not started |
 | Frontend pages | ⏳ Not started |
 | AI matching engine and evaluation | ⏳ Not started |
-| Synthetic data, statistics, dashboard | ⏳ Not started |
+| Synthetic data generator, validator, loader, data dictionary, EDA notebook | ✅ Done (M2) |
+| Statistics and dashboard | ⏳ Not started |
 
 ## Development roadmap
 
@@ -292,10 +311,14 @@ Individual contributions are recorded in the Git history.
 - [Architecture diagram](docs/diagrams/architecture.md)
 - [Database schema and ERD](docs/database-schema.md)
 - [Database relationships diagram](docs/diagrams/database-relationships.md)
+- [Data dictionary and simulation model](data/README.md)
 - [Testing](docs/testing.md)
+- [Weekly progress log](docs/progress_log.md)
 - [Development progress](docs/development-progress.md)
 - [Development roadmap](docs/roadmap.md)
 - [Project proposal (M1)](docs/proposal/README.md)
+- [Updated M1 proposal (PDF)](docs/M1_Proposal_Updated_Wnesny.pdf)
+- [M2 submission report (PDF)](docs/M2_Report_Wnesny.pdf)
 - [AI-use statement](docs/ai_use_statement.md)
 
 ## License
